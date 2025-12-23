@@ -4,8 +4,8 @@ import { Card } from './components/Card';
 import { MemberList } from './components/MemberList';
 import { Reports } from './components/Reports';
 import { Member, AppView } from './types';
-import { INITIAL_MEMBER_STATE, ChurchLogo } from './constants';
-import { Printer, ChevronLeft, Image as ImageIcon, FileType, BarChart3, LayoutDashboard, Settings } from 'lucide-react';
+import { INITIAL_MEMBER_STATE } from './constants';
+import { Printer, ChevronLeft, Image as ImageIcon, FileType, BarChart3 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -41,8 +41,8 @@ const App: React.FC = () => {
 
   const handleNewMember = () => {
     const regNum = nextSequence.toString().padStart(3, '0');
-    setCurrentMember({ 
-      ...INITIAL_MEMBER_STATE, 
+    setCurrentMember({
+      ...INITIAL_MEMBER_STATE,
       id: Date.now().toString(),
       registrationNumber: regNum
     });
@@ -68,7 +68,7 @@ const App: React.FC = () => {
     setMembers(prev => {
       const exists = prev.find(m => m.id === currentMember.id);
       if (exists) {
-        return prev.map(m => m.id === currentMember.id ? currentMember : m);
+        return prev.map(m => (m.id === currentMember.id ? currentMember : m));
       } else {
         isNew = true;
         return [...prev, currentMember];
@@ -89,11 +89,10 @@ const App: React.FC = () => {
   const handleDownloadPNG = async () => {
     const element = document.getElementById('card-preview');
     if (!element) return;
-    
-    // Create a temporary container to render at high res without visual scaling issues
+
     try {
-      const canvas = await html2canvas(element, { 
-        scale: 4, // High Resolution
+      const canvas = await html2canvas(element, {
+        scale: 4,
         useCORS: true,
         backgroundColor: null
       });
@@ -112,24 +111,36 @@ const App: React.FC = () => {
     if (!element) return;
 
     try {
-      const canvas = await html2canvas(element, { scale: 4, useCORS: true });
+      const canvas = await html2canvas(element, { scale: 4, useCORS: true, backgroundColor: '#ffffff' });
       const imgData = canvas.toDataURL('image/png');
-      
+
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
         format: 'a4'
       });
 
-      // Maintain aspect ratio 10cm x 6.5cm
-      // In PDF units (mm), that is 100mm x 65mm.
-      // We will place Front at (10, 10) and Back at (120, 10)
-      
-      // Calculate layout based on the single canvas containing both sides
-      const imgWidth = 210; // Approx 2 cards width + gap
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
 
-      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+      // Mantém proporção do canvas e centraliza no A4
+      const margin = 10;
+      const maxW = pageW - margin * 2;
+      const maxH = pageH - margin * 2;
+
+      const ratio = canvas.width / canvas.height;
+      let drawW = maxW;
+      let drawH = drawW / ratio;
+
+      if (drawH > maxH) {
+        drawH = maxH;
+        drawW = drawH * ratio;
+      }
+
+      const x = (pageW - drawW) / 2;
+      const y = (pageH - drawH) / 2;
+
+      pdf.addImage(imgData, 'PNG', x, y, drawW, drawH);
       pdf.save(`carteira-${currentMember.fullName.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
@@ -143,9 +154,15 @@ const App: React.FC = () => {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50 no-print">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 flex-shrink-0 bg-green-50 rounded-lg p-1 text-green-700 shadow-sm border border-green-100">
-               <ChurchLogo />
+            <div className="w-9 h-9 flex-shrink-0 bg-green-50 rounded-lg p-1 shadow-sm border border-green-100 flex items-center justify-center overflow-hidden">
+              <img
+                src="/logo_app.png"
+                alt="Logo Igreja"
+                className="w-full h-full object-contain"
+                draggable={false}
+              />
             </div>
+
             <div className="min-w-0">
               <h1 className="text-sm sm:text-lg font-bold text-gray-900 leading-tight truncate sm:whitespace-normal">
                 Igreja Evangélica Pentecostal Jardim de Oração Independente
@@ -153,93 +170,86 @@ const App: React.FC = () => {
               <p className="text-xs text-gray-500 font-medium">Gestão de Membros</p>
             </div>
           </div>
-          
+
           <nav className="flex items-center gap-2 flex-shrink-0">
             {view === AppView.LIST ? (
-               <button 
-                 onClick={() => setView(AppView.REPORTS)}
-                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
-               >
-                 <BarChart3 className="w-4 h-4" /> 
-                 <span className="hidden sm:inline">Relatórios</span>
-               </button>
+              <button
+                onClick={() => setView(AppView.REPORTS)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">Relatórios</span>
+              </button>
             ) : (
-               <button 
-                 onClick={() => setView(AppView.LIST)}
-                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
-               >
-                 <ChevronLeft className="w-4 h-4" /> 
-                 <span>Voltar</span>
-               </button>
+              <button
+                onClick={() => setView(AppView.LIST)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Voltar</span>
+              </button>
             )}
           </nav>
         </div>
       </header>
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 print:p-0 print:w-full">
-        
         {view === AppView.LIST && (
-           <MemberList 
-             members={members}
-             onNewMember={handleNewMember}
-             onEdit={handleEditMember}
-             onGenerateCard={handleGenerateCard}
-             onDelete={handleDeleteMember}
-           />
+          <MemberList
+            members={members}
+            onNewMember={handleNewMember}
+            onEdit={handleEditMember}
+            onGenerateCard={handleGenerateCard}
+            onDelete={handleDeleteMember}
+          />
         )}
 
-        {view === AppView.REPORTS && (
-          <Reports members={members} />
-        )}
+        {view === AppView.REPORTS && <Reports members={members} />}
 
         {view === AppView.FORM && (
           <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <Form 
-                data={currentMember} 
-                onChange={setCurrentMember} 
-                onSubmit={handleSaveMember} 
-             />
+            <Form data={currentMember} onChange={setCurrentMember} onSubmit={handleSaveMember} />
           </div>
         )}
 
         {view === AppView.CARD && (
           <div className="flex flex-col items-center animate-in zoom-in-95 duration-300">
             <div className="w-full max-w-3xl mb-8 no-print">
-               <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-900">Pré-visualização da Carteira</h3>
-                    <p className="text-sm text-gray-500 mt-1">Verifique os dados abaixo antes de exportar.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <button 
-                      onClick={handleDownloadPNG}
-                      className="btn-secondary flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 transition-colors"
-                    >
-                      <ImageIcon className="w-4 h-4" /> PNG
-                    </button>
-                    <button 
-                      onClick={handleDownloadPDF}
-                      className="btn-primary flex items-center gap-2 px-4 py-2 bg-green-700 text-white font-semibold rounded-lg hover:bg-green-800 shadow-md shadow-green-200 transition-all"
-                    >
-                      <FileType className="w-4 h-4" /> PDF
-                    </button>
-                    <button 
-                      onClick={() => window.print()}
-                      className="btn-secondary flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      <Printer className="w-4 h-4" /> Imprimir
-                    </button>
-                  </div>
-               </div>
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Pré-visualização da Carteira</h3>
+                  <p className="text-sm text-gray-500 mt-1">Verifique os dados abaixo antes de exportar.</p>
+                </div>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <button
+                    onClick={handleDownloadPNG}
+                    className="btn-secondary flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <ImageIcon className="w-4 h-4" /> PNG
+                  </button>
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="btn-primary flex items-center gap-2 px-4 py-2 bg-green-700 text-white font-semibold rounded-lg hover:bg-green-800 shadow-md shadow-green-200 transition-all"
+                  >
+                    <FileType className="w-4 h-4" /> PDF
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="btn-secondary flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Printer className="w-4 h-4" /> Imprimir
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Print Container */}
             <div className="overflow-auto max-w-full p-4 md:p-10 bg-gray-200/50 rounded-xl border border-gray-300 print:bg-white print:border-none print:p-0">
-               <div id="card-preview" className="inline-block bg-white p-1 print:p-0">
-                  <Card member={currentMember} id="card-element" />
-               </div>
+              <div id="card-preview" className="inline-block bg-white p-1 print:p-0">
+                <Card member={currentMember} id="card-element" />
+              </div>
             </div>
-            
+
             <p className="mt-4 text-xs text-gray-400 no-print">
               * Para melhor qualidade, baixe o PDF e imprima em papel fotográfico ou PVC. Dimensões: 10cm x 6.5cm.
             </p>
