@@ -1,0 +1,7 @@
+{
+  "name": "Jardim de Oração - Carteira Digital",
+  "description": "Sistema de cadastro de membros e geração de credenciais eclesiásticas.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
