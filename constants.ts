@@ -16,7 +16,7 @@ export const CONGREGATION_DETAILS: Record<string, CongregationData> = {
   "SEDE": {
     name: "IGREJA EVANGÉLICA PENTECOSTAL JARDIM DE ORAÇÃO INDEPENDENTE SÉDE",
     address: "Rua da Felicidade, 226 - Bairro São Sebastião II - CEP: 78.730-280 - Rondonópolis/MT",
-    pastor: "Pr. Odair Barbosa Fernandes" // Assumed based on presidency, or generic
+    pastor: "Pr. Odair Barbosa Fernandes"
   },
   "PEDRA 90": {
     name: "IGREJA EV. PENTECOSTAL JARDIM DE ORAÇÃO INDEPENDENTE PEDRA 90",
@@ -48,7 +48,6 @@ export const INITIAL_MEMBER_STATE: Member = {
   photo: null,
   phone: "",
   email: "",
-  // New Address Fields
   addressStreet: "",
   addressNumber: "",
   addressNeighborhood: "",
@@ -59,12 +58,22 @@ export const INITIAL_MEMBER_STATE: Member = {
   status: "ATIVO"
 };
 
-// SVG Logo Component for reuse
-export const ChurchLogo = () => React.createElement(
-  "svg",
-  { viewBox: "0 0 100 100", className: "w-full h-full text-green-700 fill-current" },
-  React.createElement("circle", { cx: "50", cy: "50", r: "45", stroke: "currentColor", strokeWidth: "2", fill: "none" }),
-  React.createElement("path", { d: "M50 20 L50 80 M20 50 L80 50", stroke: "currentColor", strokeWidth: "1", opacity: "0.2" }),
-  React.createElement("path", { d: "M50 15 L60 40 L85 40 L65 55 L75 80 L50 65 L25 80 L35 55 L15 40 L40 40 Z", fill: "none", stroke: "currentColor", strokeWidth: "2" }),
-  React.createElement("text", { x: "50", y: "92", fontSize: "8", textAnchor: "middle", fontWeight: "bold" }, "JARDIM DE ORAÇÃO")
-);
+/**
+ * ✅ Assets do /public
+ * (Vite serve /public direto pela raiz "/")
+ */
+export const APP_LOGO_SRC = "/logo_app.png";
+export const CARD_WATERMARK_SRC = "/marca_dagua.png";
+
+/**
+ * ✅ Mantido: SVG antigo (fallback/uso opcional)
+ */
+export const ChurchLogo = () =>
+  React.createElement(
+    "svg",
+    { viewBox: "0 0 100 100", className: "w-full h-full text-green-700 fill-current" },
+    React.createElement("circle", { cx: "50", cy: "50", r: "45", stroke: "currentColor", strokeWidth: "2", fill: "none" }),
+    React.createElement("path", { d: "M50 20 L50 80 M20 50 L80 50", stroke: "currentColor", strokeWidth: "1", opacity: "0.2" }),
+    React.createElement("path", { d: "M50 15 L60 40 L85 40 L65 55 L75 80 L50 65 L25 80 L35 55 L15 40 L40 40 Z", fill: "none", stroke: "currentColor", strokeWidth: "2" }),
+    React.createElement("text", { x: "50", y: "92", fontSize: "8", textAnchor: "middle", fontWeight: "bold" }, "JARDIM DE ORAÇÃO")
+  );
