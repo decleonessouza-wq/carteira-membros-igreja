@@ -4,7 +4,7 @@ import { Card } from './components/Card';
 import { MemberList } from './components/MemberList';
 import { Reports } from './components/Reports';
 import { Member, AppView } from './types';
-import { INITIAL_MEMBER_STATE } from './constants';
+import { INITIAL_MEMBER_STATE, APP_LOGO_SRC } from './constants';
 import { Printer, ChevronLeft, Image as ImageIcon, FileType, BarChart3 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -20,15 +20,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const storedMembers = localStorage.getItem(STORAGE_KEY);
-    if (storedMembers) {
-      setMembers(JSON.parse(storedMembers));
-    }
+    if (storedMembers) setMembers(JSON.parse(storedMembers));
+
     const storedSequence = localStorage.getItem(SEQUENCE_KEY);
-    if (storedSequence) {
-      setNextSequence(parseInt(storedSequence, 10));
-    } else {
-      setNextSequence(1);
-    }
+    if (storedSequence) setNextSequence(parseInt(storedSequence, 10));
+    else setNextSequence(1);
   }, []);
 
   useEffect(() => {
@@ -67,17 +63,12 @@ const App: React.FC = () => {
     let isNew = false;
     setMembers(prev => {
       const exists = prev.find(m => m.id === currentMember.id);
-      if (exists) {
-        return prev.map(m => (m.id === currentMember.id ? currentMember : m));
-      } else {
-        isNew = true;
-        return [...prev, currentMember];
-      }
+      if (exists) return prev.map(m => (m.id === currentMember.id ? currentMember : m));
+      isNew = true;
+      return [...prev, currentMember];
     });
 
-    if (isNew) {
-      setNextSequence(prev => prev + 1);
-    }
+    if (isNew) setNextSequence(prev => prev + 1);
     setView(AppView.LIST);
   };
 
@@ -94,7 +85,7 @@ const App: React.FC = () => {
       const canvas = await html2canvas(element, {
         scale: 4,
         useCORS: true,
-        backgroundColor: null
+        backgroundColor: '#ffffff'
       });
       const link = document.createElement('a');
       link.download = `carteira-${currentMember.fullName.replace(/\s+/g, '_')}.png`;
@@ -106,13 +97,24 @@ const App: React.FC = () => {
     }
   };
 
+  /**
+   * ✅ PDF com alinhamento correto (10cm x 6.5cm cada lado)
+   * - Captura FRENTE e VERSO separadamente
+   * - Posiciona lado a lado no A4 landscape
+   */
   const handleDownloadPDF = async () => {
-    const element = document.getElementById('card-preview');
-    if (!element) return;
+    const front = document.getElementById('card-front');
+    const back = document.getElementById('card-back');
+    if (!front || !back) return;
 
     try {
-      const canvas = await html2canvas(element, { scale: 4, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/png');
+      const [frontCanvas, backCanvas] = await Promise.all([
+        html2canvas(front, { scale: 4, useCORS: true, backgroundColor: '#ffffff' }),
+        html2canvas(back, { scale: 4, useCORS: true, backgroundColor: '#ffffff' }),
+      ]);
+
+      const frontImg = frontCanvas.toDataURL('image/png');
+      const backImg = backCanvas.toDataURL('image/png');
 
       const pdf = new jsPDF({
         orientation: 'landscape',
@@ -120,27 +122,18 @@ const App: React.FC = () => {
         format: 'a4'
       });
 
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
+      // Tamanho real da carteira: 100mm x 65mm
+      const cardW = 100;
+      const cardH = 65;
 
-      // Mantém proporção do canvas e centraliza no A4
-      const margin = 10;
-      const maxW = pageW - margin * 2;
-      const maxH = pageH - margin * 2;
+      // Margens e gap
+      const marginX = 10;
+      const marginY = 10;
+      const gap = 5;
 
-      const ratio = canvas.width / canvas.height;
-      let drawW = maxW;
-      let drawH = drawW / ratio;
+      pdf.addImage(frontImg, 'PNG', marginX, marginY, cardW, cardH);
+      pdf.addImage(backImg, 'PNG', marginX + cardW + gap, marginY, cardW, cardH);
 
-      if (drawH > maxH) {
-        drawH = maxH;
-        drawW = drawH * ratio;
-      }
-
-      const x = (pageW - drawW) / 2;
-      const y = (pageH - drawH) / 2;
-
-      pdf.addImage(imgData, 'PNG', x, y, drawW, drawH);
       pdf.save(`carteira-${currentMember.fullName.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
@@ -154,10 +147,10 @@ const App: React.FC = () => {
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50 no-print">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 flex-shrink-0 bg-green-50 rounded-lg p-1 shadow-sm border border-green-100 flex items-center justify-center overflow-hidden">
+            <div className="w-9 h-9 flex-shrink-0 bg-green-50 rounded-lg p-1 shadow-sm border border-green-100 overflow-hidden flex items-center justify-center">
               <img
-                src="/logo_app.png"
-                alt="Logo Igreja"
+                src={APP_LOGO_SRC}
+                alt="Logo da Igreja"
                 className="w-full h-full object-contain"
                 draggable={false}
               />
