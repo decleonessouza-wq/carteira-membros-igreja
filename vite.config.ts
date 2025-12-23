@@ -21,8 +21,9 @@ export default defineConfig(({ mode }) => {
           "pwa-192.png",
           "pwa-512.png",
           "apple-touch-icon.png",
-          "logo.png",
-          "watermark.png",
+          // ✅ arquivos reais em /public
+          "logo_app.png",
+          "marca_dagua.png",
         ],
         manifest: {
           name: "Carteira Digital de Membros",
@@ -42,7 +43,7 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     define: {
-      // Mantive por compatibilidade caso algum código ainda use process.env.*
+      // Mantido por compatibilidade caso algum código ainda use process.env.*
       "process.env.API_KEY": JSON.stringify(env.GEMINI_API_KEY ?? ""),
       "process.env.GEMINI_API_KEY": JSON.stringify(env.GEMINI_API_KEY ?? ""),
     },

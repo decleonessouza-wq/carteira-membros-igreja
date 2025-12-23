@@ -4,7 +4,7 @@ import { Card } from './components/Card';
 import { MemberList } from './components/MemberList';
 import { Reports } from './components/Reports';
 import { Member, AppView } from './types';
-import { INITIAL_MEMBER_STATE, APP_LOGO_SRC } from './constants';
+import { INITIAL_MEMBER_STATE, ChurchLogo } from './constants';
 import { Printer, ChevronLeft, Image as ImageIcon, FileType, BarChart3 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -20,11 +20,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const storedMembers = localStorage.getItem(STORAGE_KEY);
-    if (storedMembers) setMembers(JSON.parse(storedMembers));
-
+    if (storedMembers) {
+      setMembers(JSON.parse(storedMembers));
+    }
     const storedSequence = localStorage.getItem(SEQUENCE_KEY);
-    if (storedSequence) setNextSequence(parseInt(storedSequence, 10));
-    else setNextSequence(1);
+    if (storedSequence) {
+      setNextSequence(parseInt(storedSequence, 10));
+    } else {
+      setNextSequence(1);
+    }
   }, []);
 
   useEffect(() => {
@@ -63,12 +67,17 @@ const App: React.FC = () => {
     let isNew = false;
     setMembers(prev => {
       const exists = prev.find(m => m.id === currentMember.id);
-      if (exists) return prev.map(m => (m.id === currentMember.id ? currentMember : m));
-      isNew = true;
-      return [...prev, currentMember];
+      if (exists) {
+        return prev.map(m => m.id === currentMember.id ? currentMember : m);
+      } else {
+        isNew = true;
+        return [...prev, currentMember];
+      }
     });
 
-    if (isNew) setNextSequence(prev => prev + 1);
+    if (isNew) {
+      setNextSequence(prev => prev + 1);
+    }
     setView(AppView.LIST);
   };
 
@@ -77,16 +86,34 @@ const App: React.FC = () => {
     setView(AppView.CARD);
   };
 
-  const handleDownloadPNG = async () => {
+  /**
+   * Renderiza em alta qualidade sem “desconfigurar”:
+   * - força background branco (para export)
+   * - usa scale alto
+   * - evita deslocamentos por scroll
+   */
+  const captureCardCanvas = async () => {
     const element = document.getElementById('card-preview');
-    if (!element) return;
+    if (!element) return null;
 
+    const canvas = await html2canvas(element, {
+      scale: 4,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.clientWidth,
+      windowHeight: document.documentElement.clientHeight
+    });
+
+    return canvas;
+  };
+
+  const handleDownloadPNG = async () => {
     try {
-      const canvas = await html2canvas(element, {
-        scale: 4,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
+      const canvas = await captureCardCanvas();
+      if (!canvas) return;
+
       const link = document.createElement('a');
       link.download = `carteira-${currentMember.fullName.replace(/\s+/g, '_')}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -98,42 +125,24 @@ const App: React.FC = () => {
   };
 
   /**
-   * ✅ PDF com alinhamento correto (10cm x 6.5cm cada lado)
-   * - Captura FRENTE e VERSO separadamente
-   * - Posiciona lado a lado no A4 landscape
+   * PDF no tamanho real 10cm x 13cm (100mm x 130mm)
+   * Frente (10x6,5) em cima e Verso (10x6,5) embaixo
    */
   const handleDownloadPDF = async () => {
-    const front = document.getElementById('card-front');
-    const back = document.getElementById('card-back');
-    if (!front || !back) return;
-
     try {
-      const [frontCanvas, backCanvas] = await Promise.all([
-        html2canvas(front, { scale: 4, useCORS: true, backgroundColor: '#ffffff' }),
-        html2canvas(back, { scale: 4, useCORS: true, backgroundColor: '#ffffff' }),
-      ]);
+      const canvas = await captureCardCanvas();
+      if (!canvas) return;
 
-      const frontImg = frontCanvas.toDataURL('image/png');
-      const backImg = backCanvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png');
 
       const pdf = new jsPDF({
-        orientation: 'landscape',
+        orientation: 'portrait',
         unit: 'mm',
-        format: 'a4'
+        format: [100, 130] // 10cm x 13cm
       });
 
-      // Tamanho real da carteira: 100mm x 65mm
-      const cardW = 100;
-      const cardH = 65;
-
-      // Margens e gap
-      const marginX = 10;
-      const marginY = 10;
-      const gap = 5;
-
-      pdf.addImage(frontImg, 'PNG', marginX, marginY, cardW, cardH);
-      pdf.addImage(backImg, 'PNG', marginX + cardW + gap, marginY, cardW, cardH);
-
+      // ocupa a página toda (100 x 130)
+      pdf.addImage(imgData, 'PNG', 0, 0, 100, 130, undefined, 'FAST');
       pdf.save(`carteira-${currentMember.fullName.replace(/\s+/g, '_')}.pdf`);
     } catch (err) {
       console.error("Erro ao gerar PDF:", err);
@@ -142,23 +151,30 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 pb-12">
+    <div className="min-h-screen flex flex-col bg-[#00C993] pb-12 print:bg-white">
       {/* Modern Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50 no-print">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-9 h-9 flex-shrink-0 bg-green-50 rounded-lg p-1 shadow-sm border border-green-100 overflow-hidden flex items-center justify-center">
+      <header className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50 no-print">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-4 overflow-hidden">
+            {/* LOGO MAIOR (máximo possível sem estourar) */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-white rounded-xl p-1 shadow-lg border border-gray-100">
+              {/* usa sua logo do /public; se faltar, cai no SVG antigo */}
               <img
-                src={APP_LOGO_SRC}
-                alt="Logo da Igreja"
+                src="/logo_app.png"
+                alt="Logo"
                 className="w-full h-full object-contain"
-                draggable={false}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
               />
+              <div className="w-full h-full text-green-700" aria-hidden>
+                <ChurchLogo />
+              </div>
             </div>
 
             <div className="min-w-0">
               <h1 className="text-sm sm:text-lg font-bold text-gray-900 leading-tight truncate sm:whitespace-normal">
-                Igreja Evangélica Pentecostal Jardim de Oração Independente
+                Igreja Evangélica Pentecostal - JARDIM DE ORAÇÃO INDEPENDENTE
               </h1>
               <p className="text-xs text-gray-500 font-medium">Gestão de Membros</p>
             </div>
@@ -168,7 +184,7 @@ const App: React.FC = () => {
             {view === AppView.LIST ? (
               <button
                 onClick={() => setView(AppView.REPORTS)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
+                className="shadow-lg flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
               >
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Relatórios</span>
@@ -176,7 +192,7 @@ const App: React.FC = () => {
             ) : (
               <button
                 onClick={() => setView(AppView.LIST)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
+                className="shadow-lg flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>Voltar</span>
@@ -187,26 +203,38 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 print:p-0 print:w-full">
+
         {view === AppView.LIST && (
-          <MemberList
-            members={members}
-            onNewMember={handleNewMember}
-            onEdit={handleEditMember}
-            onGenerateCard={handleGenerateCard}
-            onDelete={handleDeleteMember}
-          />
+          <div className="shadow-lg rounded-2xl">
+            <MemberList
+              members={members}
+              onNewMember={handleNewMember}
+              onEdit={handleEditMember}
+              onGenerateCard={handleGenerateCard}
+              onDelete={handleDeleteMember}
+            />
+          </div>
         )}
 
-        {view === AppView.REPORTS && <Reports members={members} />}
+        {view === AppView.REPORTS && (
+          <div className="shadow-lg rounded-2xl">
+            <Reports members={members} />
+          </div>
+        )}
 
         {view === AppView.FORM && (
-          <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <Form data={currentMember} onChange={setCurrentMember} onSubmit={handleSaveMember} />
+          <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-lg rounded-2xl">
+            <Form
+              data={currentMember}
+              onChange={setCurrentMember}
+              onSubmit={handleSaveMember}
+            />
           </div>
         )}
 
         {view === AppView.CARD && (
           <div className="flex flex-col items-center animate-in zoom-in-95 duration-300">
+
             <div className="w-full max-w-3xl mb-8 no-print">
               <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
                 <div>
@@ -216,19 +244,19 @@ const App: React.FC = () => {
                 <div className="flex flex-wrap gap-3 justify-center">
                   <button
                     onClick={handleDownloadPNG}
-                    className="btn-secondary flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 transition-colors"
+                    className="shadow-lg flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-semibold rounded-lg hover:bg-indigo-100 transition-colors"
                   >
                     <ImageIcon className="w-4 h-4" /> PNG
                   </button>
                   <button
                     onClick={handleDownloadPDF}
-                    className="btn-primary flex items-center gap-2 px-4 py-2 bg-green-700 text-white font-semibold rounded-lg hover:bg-green-800 shadow-md shadow-green-200 transition-all"
+                    className="shadow-lg flex items-center gap-2 px-4 py-2 bg-green-700 text-white font-semibold rounded-lg hover:bg-green-800 transition-all"
                   >
                     <FileType className="w-4 h-4" /> PDF
                   </button>
                   <button
                     onClick={() => window.print()}
-                    className="btn-secondary flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+                    className="shadow-lg flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <Printer className="w-4 h-4" /> Imprimir
                   </button>
@@ -236,21 +264,22 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Print Container */}
-            <div className="overflow-auto max-w-full p-4 md:p-10 bg-gray-200/50 rounded-xl border border-gray-300 print:bg-white print:border-none print:p-0">
-              <div id="card-preview" className="inline-block bg-white p-1 print:p-0">
+            {/* Print / Export Container */}
+            <div className="overflow-auto max-w-full p-4 md:p-10 bg-white/25 rounded-2xl border border-white/40 shadow-lg print:bg-white print:border-none print:p-0">
+              <div id="card-preview" className="inline-block bg-white p-2 shadow-lg print:shadow-none print:p-0">
+                {/* Agora o Card renderiza no tamanho 10x13cm total */}
                 <Card member={currentMember} id="card-element" />
               </div>
             </div>
 
-            <p className="mt-4 text-xs text-gray-400 no-print">
-              * Para melhor qualidade, baixe o PDF e imprima em papel fotográfico ou PVC. Dimensões: 10cm x 6.5cm.
+            <p className="mt-4 text-xs text-white/90 no-print">
+              * Para melhor qualidade, baixe o PDF e imprima em papel fotográfico ou PVC. Dimensões: 10cm x 13cm (frente/verso).
             </p>
           </div>
         )}
       </main>
 
-      <footer className="bg-white border-t border-gray-200 py-8 mt-auto no-print">
+      <footer className="bg-white border-t border-gray-200 py-8 mt-auto no-print shadow-lg">
         <div className="max-w-6xl mx-auto px-4 text-center">
           <p className="text-sm text-gray-500">© 2026 Igreja Evangélica Pentecostal Jardim de Oração Independente</p>
           <p className="text-xs text-gray-400 mt-1">Desenvolvido com excelência por Decleones Andrade</p>

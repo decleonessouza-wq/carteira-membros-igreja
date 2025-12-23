@@ -25,7 +25,7 @@ export const CONGREGATION_DETAILS: Record<string, CongregationData> = {
   },
   "PEDRA PRETA": {
     name: "IGREJA EV. PENTECOSTAL JARDIM DE ORAÇÃO INDEPENDENTE PEDRA PRETA",
-    address: "Rua Arcanjo Felipe Meira, S/N° - Bairro: Jardim Morumbi - Pedra Preta/MT",
+    address: "Rua Felipe Arcanjo Meira, S/N° - Bairro: Jardim Morumbi - Pedra Preta/MT",
     pastor: "Pb. Neterson Oliveira de Souza"
   }
 };
