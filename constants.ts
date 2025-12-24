@@ -41,7 +41,9 @@ export const INITIAL_MEMBER_STATE: Member = {
   motherName: "",
   naturalness: "Rondonópolis - MT",
   birthDate: "",
-  registrationDate: new Date().toLocaleDateString('pt-BR'),
+  // ⚠️ Mantemos em ISO (YYYY-MM-DD) para inputs type="date" e coluna DATE no Supabase.
+  // Na carteira (Card.tsx) isso é formatado para DD/MM/AAAA.
+  registrationDate: new Date().toISOString().slice(0, 10),
   role: "Membro",
   congregation: "SEDE",
   baptismDate: "",

@@ -16,6 +16,9 @@ export interface CongregationData {
 export interface Member {
   id: string;
 
+  // Dono do registro (Supabase Auth)
+  userId?: string;
+
   registrationNumber: string;
   registrationDate: string;
 
@@ -37,7 +40,8 @@ export interface Member {
   email: string;
   phone: string;
 
-  photo: string; // normalmente base64/dataURL hoje; no Supabase será URL do Storage
+  // base64/dataURL no momento (sem Storage). Pode virar URL do Storage depois.
+  photo: string | null;
 
   addressStreet: string;
   addressNumber: string;
