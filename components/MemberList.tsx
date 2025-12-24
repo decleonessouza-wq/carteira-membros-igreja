@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
-import { Member } from '../types';
-import { UserPlus, Search, Edit, CreditCard, Trash2, User, FileText, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import jsPDF from 'jspdf';
-import { CONGREGATION_DETAILS } from '../constants';
+import React, { useMemo, useState } from "react";
+import { Member } from "../types";
+import {
+  UserPlus,
+  Search,
+  Edit,
+  CreditCard,
+  Trash2,
+  User,
+  FileText,
+  BarChart3,
+  Users,
+  BadgeCheck,
+  AlertTriangle,
+} from "lucide-react";
+import jsPDF from "jspdf";
+import { CONGREGATION_DETAILS, APP_LOGO_SRC } from "../constants";
 
 interface MemberListProps {
   members: Member[];
@@ -10,258 +22,491 @@ interface MemberListProps {
   onEdit: (member: Member) => void;
   onGenerateCard: (member: Member) => void;
   onDelete: (id: string) => void;
+  onReports?: () => void;
 }
 
-export const MemberList: React.FC<MemberListProps> = ({ 
-  members, onNewMember, onEdit, onGenerateCard, onDelete 
+function formatToPtBR(dateString?: string) {
+  if (!dateString) return "-";
+  const v = String(dateString);
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return v;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const [yyyy, mm, dd] = v.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}T/.test(v)) {
+    const iso = v.slice(0, 10);
+    const [yyyy, mm, dd] = iso.split("-");
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  return v;
+}
+
+function detectImageFormat(dataUrl: string): "PNG" | "JPEG" {
+  const v = (dataUrl || "").toLowerCase();
+  if (v.includes("image/png")) return "PNG";
+  return "JPEG";
+}
+
+let _cachedLogoDataUrl: string | null = null;
+
+async function loadLogoDataUrl(): Promise<string | null> {
+  if (_cachedLogoDataUrl) return _cachedLogoDataUrl;
+
+  const url = APP_LOGO_SRC || "/logo_app.png";
+
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+
+    const blob = await res.blob();
+
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Falha ao ler logo"));
+      reader.readAsDataURL(blob);
+    });
+
+    if (!dataUrl.startsWith("data:image/")) return null;
+
+    _cachedLogoDataUrl = dataUrl;
+    return dataUrl;
+  } catch {
+    return null;
+  }
+}
+
+export const MemberList: React.FC<MemberListProps> = ({
+  members,
+  onNewMember,
+  onEdit,
+  onGenerateCard,
+  onDelete,
+  onReports,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredMembers = members.filter(m => 
-    m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.cpf.includes(searchTerm) ||
-    m.registrationNumber?.includes(searchTerm)
-  );
+  const filteredMembers = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return members;
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'ATIVO': return 'bg-green-100 text-green-800';
-      case 'INATIVO': return 'bg-orange-100 text-orange-800';
-      case 'DESLIGADO': return 'bg-red-100 text-red-800';
-      case 'FALECIDO': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+    return members.filter((m) => {
+      const name = (m.fullName ?? "").toLowerCase();
+      const cpf = (m.cpf ?? "").toLowerCase();
+      const reg = String(m.registrationNumber ?? "").toLowerCase();
+      return name.includes(term) || cpf.includes(term) || reg.includes(term);
+    });
+  }, [members, searchTerm]);
+
+  const stats = useMemo(() => {
+    const total = members.length;
+    const ativo = members.filter((m) => (m.status ?? "").toUpperCase() === "ATIVO").length;
+    const inativo = members.filter((m) => (m.status ?? "").toUpperCase() === "INATIVO").length;
+    const desligado = members.filter((m) => (m.status ?? "").toUpperCase() === "DESLIGADO").length;
+    return { total, ativo, inativo, desligado };
+  }, [members]);
+
+  const getStatusPill = (status: string) => {
+    const s = (status || "").toUpperCase();
+    switch (s) {
+      case "ATIVO":
+        return "bg-emerald-50 text-emerald-800 border-emerald-200";
+      case "INATIVO":
+        return "bg-amber-50 text-amber-800 border-amber-200";
+      case "DESLIGADO":
+        return "bg-rose-50 text-rose-800 border-rose-200";
+      case "FALECIDO":
+        return "bg-slate-100 text-slate-700 border-slate-200";
+      case "SUSPENSO":
+        return "bg-orange-50 text-orange-800 border-orange-200";
+      default:
+        return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
-  const generateMemberSheet = (member: Member) => {
-    // PDF Logic kept same as logic is sound, improved headers only
-    const doc = new jsPDF();
-    const congData = CONGREGATION_DETAILS[member.congregation] || CONGREGATION_DETAILS['SEDE'];
-    
-    // Header
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(congData.name, 105, 15, { align: "center", maxWidth: 180 });
-    
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Endereço: ${congData.address}`, 105, 25, { align: "center", maxWidth: 180 });
-    doc.text(`Pastor Local: ${congData.pastor}`, 105, 30, { align: "center" });
+  const generateMemberSheet = async (member: Member) => {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-    doc.setLineWidth(0.5);
-    doc.line(10, 35, 200, 35);
+    const GREEN = { r: 4, g: 120, b: 87 };
+    const DARK = { r: 15, g: 23, b: 42 };
+    const MUTED = { r: 71, g: 85, b: 105 };
 
-    // Title
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("FICHA DE MEMBRO", 105, 45, { align: "center" });
+    const congData = CONGREGATION_DETAILS[member.congregation] || CONGREGATION_DETAILS["SEDE"];
 
-    // Photo Box
-    doc.setDrawColor(0);
-    doc.rect(160, 40, 30, 40);
-    if (member.photo) {
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 12;
+
+    // Carrega logo (DataURL)
+    const logoDataUrl = await loadLogoDataUrl();
+
+    // ---------- HEADER VERDE ----------
+    doc.setFillColor(GREEN.r, GREEN.g, GREEN.b);
+    doc.rect(0, 0, pageW, 28, "F");
+
+    // Logo (caixa branca)
+    if (logoDataUrl) {
       try {
-        doc.addImage(member.photo, "JPEG", 161, 41, 28, 38);
-      } catch (e) {
-        doc.setFontSize(8);
-        doc.text("Foto", 175, 60, { align: "center" });
+        const fmt = detectImageFormat(logoDataUrl);
+        doc.setFillColor(255, 255, 255);
+        (doc as any).roundedRect(10, 6, 16, 16, 2, 2, "F");
+        doc.addImage(logoDataUrl as any, fmt, 10.8, 6.8, 14.4, 14.4);
+      } catch {
+        // ignora
       }
-    } else {
-      doc.setFontSize(8);
-      doc.text("Sem Foto", 175, 60, { align: "center" });
     }
 
-    // Data Fields
-    let y = 60;
-    const lineHeight = 10;
-    
-    const addField = (label: string, val: string, x: number) => {
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${label}:`, x, y);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(congData.name, pageW / 2 + 6, 11, {
+      align: "center",
+      maxWidth: pageW - margin * 2 - 10,
+    });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Endereço: ${congData.address}`, pageW / 2 + 6, 18, {
+      align: "center",
+      maxWidth: pageW - margin * 2 - 10,
+    });
+    doc.text(`Pastor Local: ${congData.pastor}`, pageW / 2 + 6, 23.5, {
+      align: "center",
+      maxWidth: pageW - margin * 2 - 10,
+    });
+
+    // Título
+    doc.setTextColor(DARK.r, DARK.g, DARK.b);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("FICHA DE MEMBRO", pageW / 2, 40, { align: "center" });
+
+    // ---------- FOTO ----------
+    const photoX = pageW - margin - 34;
+    const photoY = 47;
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.4);
+    (doc as any).roundedRect(photoX, photoY, 34, 44, 2, 2, "S");
+
+    if (member.photo) {
+      try {
+        const fmt = detectImageFormat(member.photo);
+        doc.addImage(member.photo as any, fmt, photoX + 1, photoY + 1, 32, 42);
+      } catch {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+        doc.text("Foto", photoX + 17, photoY + 24, { align: "center" });
+      }
+    } else {
       doc.setFont("helvetica", "normal");
-      doc.text(val || "-", x + doc.getTextWidth(`${label}: `), y);
+      doc.setFontSize(8);
+      doc.setTextColor(MUTED.r, MUTED.g, MUTED.b);
+      doc.text("Sem Foto", photoX + 17, photoY + 24, { align: "center" });
+    }
+
+    // ---------- BLOCO DADOS ----------
+    const cardX = margin;
+    const cardY = 47;
+    const cardW = pageW - margin * 2 - 38;
+    const colGap = 8;
+    const colW = (cardW - colGap) / 2;
+    const leftX = cardX;
+    const rightX = cardX + colW + colGap;
+
+    const drawSectionTitle = (title: string, y: number) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(GREEN.r, GREEN.g, GREEN.b);
+      doc.text(title.toUpperCase(), cardX, y);
+      doc.setDrawColor(220, 252, 231);
+      doc.setLineWidth(2);
+      doc.line(cardX, y + 1.2, cardX + cardW, y + 1.2);
     };
 
-    addField("Matrícula", member.registrationNumber || "N/A", 15);
-    y += lineHeight;
-    
-    addField("Nome Completo", member.fullName, 15);
-    y += lineHeight;
+    const drawField = (label: string, value: string, x: number, y: number, w: number) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(label, x, y);
 
-    addField("CPF", member.cpf, 15);
-    addField("RG", member.rg, 100);
-    y += lineHeight;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(DARK.r, DARK.g, DARK.b);
 
-    addField("Data Nasc.", member.birthDate ? new Date(member.birthDate).toLocaleDateString('pt-BR') : "-", 15);
-    addField("Naturalidade", member.naturalness, 80);
-    y += lineHeight;
+      const txt = value?.trim() ? value : "-";
+      const lines = doc.splitTextToSize(txt, w);
+      doc.text(lines, x, y + 5);
+      return y + 5 + lines.length * 4.8;
+    };
 
-    addField("Pai", member.fatherName, 15);
-    y += lineHeight;
-    addField("Mãe", member.motherName, 15);
-    y += lineHeight;
+    let y = cardY;
 
-    addField("Telefone", member.phone, 15);
-    addField("Email", member.email, 100);
-    y += lineHeight;
+    drawSectionTitle("Dados do Membro", y);
+    y += 8;
 
-    // Construct Address
-    const fullAddress = `${member.addressStreet}, ${member.addressNumber} - ${member.addressNeighborhood} - ${member.addressCity}/${member.addressState} - CEP: ${member.addressCep} ${member.addressComplement ? `(${member.addressComplement})` : ''}`;
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Endereço:", 15, y);
+    const rowTop = y;
+    const y1 = drawField("Matrícula", String(member.registrationNumber || "N/A"), leftX, rowTop, colW);
+    const y2 = drawField("Situação", String(member.status || "-"), rightX, rowTop, colW);
+    y = Math.max(y1, y2) + 2;
+
+    y = drawField("Nome Completo", member.fullName || "-", leftX, y, cardW) + 2;
+
+    const y3 = drawField("CPF", member.cpf || "-", leftX, y, colW);
+    const y4 = drawField("RG", member.rg || "-", rightX, y, colW);
+    y = Math.max(y3, y4) + 2;
+
+    const y5 = drawField("Data de Nascimento", formatToPtBR(member.birthDate), leftX, y, colW);
+    const y6 = drawField("Naturalidade", member.naturalness || "-", rightX, y, colW);
+    y = Math.max(y5, y6) + 2;
+
+    y = drawField("Pai", member.fatherName || "-", leftX, y, cardW) + 1.5;
+    y = drawField("Mãe", member.motherName || "-", leftX, y, cardW) + 2;
+
+    drawSectionTitle("Contato & Endereço", y);
+    y += 8;
+
+    const y7 = drawField("Telefone", member.phone || "-", leftX, y, colW);
+    const y8 = drawField("Email", member.email || "-", rightX, y, colW);
+    y = Math.max(y7, y8) + 2;
+
+    const fullAddress = `${member.addressStreet || "-"}, ${member.addressNumber || "-"} - ${
+      member.addressNeighborhood || "-"
+    } - ${member.addressCity || "-"}/${member.addressState || "-"} - CEP: ${
+      member.addressCep || "-"
+    }${member.addressComplement ? ` (${member.addressComplement})` : ""}`;
+
+    y = drawField("Endereço Completo", fullAddress, leftX, y, cardW) + 2;
+
+    drawSectionTitle("Dados Eclesiásticos", y);
+    y += 8;
+
+    const y9 = drawField("Congregação", member.congregation || "-", leftX, y, colW);
+    const y10 = drawField("Cargo", member.role || "-", rightX, y, colW);
+    y = Math.max(y9, y10) + 2;
+
+    const y11 = drawField("Data Batismo", formatToPtBR(member.baptismDate), leftX, y, colW);
+    const y12 = drawField("Data Cadastro", formatToPtBR(member.registrationDate), rightX, y, colW);
+    y = Math.max(y11, y12) + 4;
+
+    const sigY = 270;
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.3);
+
+    doc.line(margin, sigY, margin + 70, sigY);
+    doc.line(pageW - margin - 70, sigY, pageW - margin, sigY);
+
     doc.setFont("helvetica", "normal");
-    // Handle long addresses by splitting text
-    const addressLines = doc.splitTextToSize(fullAddress, 170);
-    doc.text(addressLines, 15 + doc.getTextWidth("Endereço: "), y);
-    
-    y += (addressLines.length * 5) + 5; // Adjust Y based on address lines
-
-    doc.line(10, y, 150, y);
-    y += 10;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Dados Eclesiásticos", 15, y);
-    y += 10;
-
-    addField("Congregação", member.congregation, 15);
-    addField("Situação", member.status, 100);
-    y += lineHeight;
-
-    addField("Cargo", member.role, 15);
-    addField("Data Batismo", member.baptismDate ? new Date(member.baptismDate).toLocaleDateString('pt-BR') : "-", 100);
-    y += lineHeight;
-
-    addField("Data Cadastro", member.registrationDate, 15);
-    
-    y = 250;
-    doc.setLineWidth(0.2);
-    
-    doc.line(20, y, 90, y);
     doc.setFontSize(8);
-    doc.text("Assinatura do Membro", 55, y + 5, { align: "center" });
+    doc.setTextColor(100, 116, 139);
+    doc.text("Assinatura do Membro", margin + 35, sigY + 5, { align: "center" });
+    doc.text("Secretaria da Igreja", pageW - margin - 35, sigY + 5, { align: "center" });
 
-    doc.line(120, y, 190, y);
-    doc.text("Secretaria da Igreja", 155, y + 5, { align: "center" });
+    doc.line(pageW / 2 - 35, sigY + 22, pageW / 2 + 35, sigY + 22);
+    doc.text("Pastor Responsável", pageW / 2, sigY + 27, { align: "center" });
 
-    y += 25;
-    doc.line(70, y, 140, y);
-    doc.text("Pastor Responsável", 105, y + 5, { align: "center" });
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, pageW / 2, pageH - 10, {
+      align: "center",
+    });
 
-    doc.save(`ficha_${member.fullName.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`ficha_${(member.fullName || "membro").replace(/\s+/g, "_")}.pdf`);
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header Actions */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <div>
-           <h2 className="text-2xl font-bold text-gray-900">Membros Cadastrados</h2>
-           <p className="text-gray-500 text-sm mt-1">Gerencie os membros, gere carteiras e fichas.</p>
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-[0_12px_40px_-20px_rgba(0,0,0,0.35)]">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 via-white to-emerald-50" />
+        <div className="relative p-6 md:p-7 flex flex-col gap-4">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-black">
+                <Users className="w-4 h-4" />
+                Cadastro & Carteira Digital
+              </div>
+
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900 mt-2 tracking-tight">
+                Membros Cadastrados
+              </h2>
+              <p className="text-slate-600 text-sm mt-1">
+                Gerencie membros, gere carteiras e fichas em PDF.
+              </p>
+            </div>
+
+            <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+              {onReports && (
+                <button
+                  onClick={onReports}
+                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white border border-emerald-200 text-emerald-800 font-extrabold shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200"
+                  title="Relatórios"
+                >
+                  <BarChart3 className="w-5 h-5" />
+                  RELATÓRIOS
+                </button>
+              )}
+
+              <button
+                onClick={onNewMember}
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-black shadow-[0_18px_40px_-22px_rgba(16,185,129,0.9)] hover:shadow-[0_22px_55px_-25px_rgba(16,185,129,0.95)] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200"
+              >
+                <UserPlus className="w-5 h-5" />
+                NOVO MEMBRO
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
+              <div className="text-xs font-black text-slate-500">TOTAL</div>
+              <div className="text-2xl font-black text-slate-900">{stats.total}</div>
+            </div>
+            <div className="rounded-2xl bg-white border border-emerald-100 shadow-sm p-4">
+              <div className="text-xs font-black text-emerald-700 flex items-center gap-2">
+                <BadgeCheck className="w-4 h-4" /> ATIVOS
+              </div>
+              <div className="text-2xl font-black text-slate-900">{stats.ativo}</div>
+            </div>
+            <div className="rounded-2xl bg-white border border-amber-100 shadow-sm p-4">
+              <div className="text-xs font-black text-amber-700 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> INATIVOS
+              </div>
+              <div className="text-2xl font-black text-slate-900">{stats.inativo}</div>
+            </div>
+            <div className="rounded-2xl bg-white border border-rose-100 shadow-sm p-4">
+              <div className="text-xs font-black text-rose-700">DESLIGADOS</div>
+              <div className="text-2xl font-black text-slate-900">{stats.desligado}</div>
+            </div>
+          </div>
         </div>
-        <button 
-          onClick={onNewMember}
-          className="w-full md:w-auto bg-green-700 hover:bg-green-800 text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 text-sm font-bold shadow-lg shadow-green-200 transition-all transform hover:scale-105"
-        >
-          <UserPlus className="w-5 h-5" /> NOVO MEMBRO
-        </button>
       </div>
 
-      {/* Search Bar */}
       <div className="relative">
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+          <Search className="h-5 w-5 text-slate-400" />
         </div>
-        <input 
-          type="text" 
-          placeholder="Buscar por nome, CPF ou matrícula..." 
-          className="block w-full pl-11 pr-4 py-4 bg-white border border-gray-200 rounded-xl leading-5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent sm:text-sm shadow-sm transition-all"
+        <input
+          type="text"
+          placeholder="Buscar por nome, CPF ou matrícula..."
+          className="block w-full pl-11 pr-4 py-4 bg-white border border-slate-200 rounded-2xl leading-5 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent sm:text-sm shadow-sm transition-all"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {/* Member Grid */}
       {filteredMembers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-gray-300">
-          <div className="bg-gray-50 p-4 rounded-full mb-4">
-             <User className="w-10 h-10 text-gray-400" />
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm">
+          <div className="bg-slate-50 p-4 rounded-full mb-4">
+            <User className="w-10 h-10 text-slate-400" />
           </div>
-          <p className="text-lg font-medium text-gray-900">Nenhum membro encontrado.</p>
-          <p className="text-gray-500 text-sm">Tente buscar outro termo ou cadastre um novo membro.</p>
+          <p className="text-lg font-black text-slate-900">Nenhum membro encontrado.</p>
+          <p className="text-slate-500 text-sm text-center max-w-md mt-1">
+            Tente buscar outro termo ou cadastre um novo membro para gerar carteira e ficha.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {filteredMembers.map((member) => (
-            <div key={member.id} className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-xl hover:border-green-200 transition-all duration-300 flex items-start gap-5">
-              
-              {/* Avatar */}
+            <div
+              key={member.id}
+              className="group bg-white rounded-3xl p-5 border border-slate-100
+                         shadow-[0_16px_45px_-28px_rgba(0,0,0,0.45)]
+                         hover:shadow-[0_22px_60px_-30px_rgba(0,0,0,0.55)]
+                         hover:border-emerald-200 transition-all duration-300
+                         flex items-start gap-5 hover:-translate-y-[1px]"
+            >
               <div className="relative flex-shrink-0">
-                <div className="w-20 h-24 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-inner">
+                <div className="w-20 h-24 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
                   {member.photo ? (
-                    <img src={member.photo} alt={member.fullName} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <img
+                      src={member.photo}
+                      alt={member.fullName}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
                       <User className="w-8 h-8" />
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-2 -right-2 bg-green-700 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                   #{member.registrationNumber}
+                <div className="absolute -bottom-2 -right-2 bg-emerald-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                  #{member.registrationNumber}
                 </div>
               </div>
-              
-              {/* Info */}
-              <div className="flex-1 min-w-0 py-1">
-                <div className="flex items-start justify-between">
-                   <div>
-                      <h3 className="font-bold text-gray-900 truncate text-base group-hover:text-green-700 transition-colors uppercase">{member.fullName}</h3>
-                      <p className="text-sm font-medium text-green-600 mb-1">{member.role}</p>
-                   </div>
-                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${getStatusColor(member.status)}`}>
-                      {member.status}
-                   </span>
-                </div>
-                
-                <p className="text-xs text-gray-400 mb-4 truncate">{member.congregation}</p>
 
-                {/* Actions */}
-                <div className="flex items-center gap-2 mt-auto">
-                  <button 
+              <div className="flex-1 min-w-0 py-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="font-black text-slate-900 truncate text-base group-hover:text-emerald-700 transition-colors uppercase">
+                      {member.fullName}
+                    </h3>
+                    <p className="text-sm font-extrabold text-emerald-700">{member.role || "-"}</p>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">{member.congregation || "-"}</p>
+                  </div>
+
+                  <span
+                    className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(
+                      member.status
+                    )}`}
+                  >
+                    {member.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4">
+                  <button
                     onClick={() => onGenerateCard(member)}
-                    className="flex-1 bg-gray-50 hover:bg-green-50 text-gray-700 hover:text-green-700 py-2 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 border border-gray-200 hover:border-green-200"
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl text-xs font-black
+                               bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800
+                               border border-slate-200 hover:border-emerald-200
+                               transition-all duration-200 active:scale-[0.99]"
                     title="Carteira"
                   >
-                    <CreditCard className="w-4 h-4" /> Carteira
+                    <CreditCard className="w-4 h-4" />
+                    Carteira
                   </button>
-                  <button 
+
+                  <button
                     onClick={() => generateMemberSheet(member)}
-                    className="p-2 bg-gray-50 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors"
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700
+                               border border-slate-200 hover:border-emerald-200 transition-all duration-200"
                     title="Ficha PDF"
                   >
                     <FileText className="w-4 h-4" />
                   </button>
-                  <button 
+
+                  <button
                     onClick={() => onEdit(member)}
-                    className="p-2 bg-gray-50 hover:bg-orange-50 text-gray-600 hover:text-orange-600 rounded-lg border border-gray-200 hover:border-orange-200 transition-colors"
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700
+                               border border-slate-200 hover:border-amber-200 transition-all duration-200"
                     title="Editar"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
-                  <button 
+
+                  <button
                     onClick={() => {
-                      if(confirm("Tem certeza que deseja excluir este membro?")) {
+                      if (window.confirm("Tem certeza que deseja excluir este membro?")) {
                         onDelete(member.id);
                       }
                     }}
-                    className="p-2 bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded-lg border border-gray-200 hover:border-red-200 transition-colors"
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700
+                               border border-slate-200 hover:border-rose-200 transition-all duration-200"
                     title="Excluir"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                </div>
+
+                <div className="mt-3 text-[11px] text-slate-400">
+                  Dica: gere a <span className="font-bold text-slate-500">Ficha</span> para impressão e arquivo.
                 </div>
               </div>
             </div>
