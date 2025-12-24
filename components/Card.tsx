@@ -38,21 +38,20 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
     <div
       className={`flex flex-col bg-white/85 border border-green-700 rounded-sm overflow-hidden box-border shadow-lg ${className}`}
     >
-      {/* label */}
-      <div className="h-[0.28cm] px-1 flex items-center">
-        <span className="text-[6px] font-bold text-green-800 uppercase leading-none">
+      {/* label (ligeiramente mais alto e com baseline mais “pra cima”) */}
+      <div className="h-[0.26cm] px-1 flex items-start pt-[1px]">
+        <span className="text-[6px] font-bold text-green-800 uppercase leading-none -mt-[1px]">
           {label}
         </span>
       </div>
 
-      {/* ✅ valor sobe mais pra encaixar e não cortar no export */}
-      <div className="flex-1 px-1 pb-[1px] pt-[1px] flex items-start">
+      {/* valor (subindo 1~2px pra não “descer” no export) */}
+      <div className="flex-1 px-1 pb-[1px] pt-0 flex items-start">
         <div
-          className={`w-full text-[10px] font-bold text-gray-900 uppercase font-card leading-[1.05] ${
+          className={`w-full text-[10px] font-bold text-gray-900 uppercase font-card leading-[1.02] ${
             center ? "text-center" : "text-left"
           }`}
           style={{
-            // ajuda a manter consistência no canvas
             textRendering: "geometricPrecision",
           }}
         >
@@ -67,7 +66,7 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
       <h1 className="text-green-800 font-card-header font-black text-[11px] leading-[0.95] tracking-tight uppercase">
         {CHURCH_DATA.name}
       </h1>
-      <p className="text-[7px] font-bold text-gray-600 mt-[1px]">
+      <p className="text-[7px] font-bold text-gray-600 mt-[1px] leading-none">
         CNPJ: {CHURCH_DATA.cnpj}
       </p>
       <div className="flex flex-col items-center justify-center mt-[2px] space-y-[1px]">
@@ -156,11 +155,12 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
                   )}
                 </div>
 
+                {/* ✅ MATRÍCULA: sobe um pouco (label e número) */}
                 <div className="bg-green-700 text-white text-center rounded-sm h-[0.5cm] flex flex-col justify-center box-border shadow-lg">
-                  <span className="text-[5px] uppercase font-bold leading-none text-green-100">
+                  <span className="text-[5px] uppercase font-bold leading-none text-green-100 -mt-[10px]">
                     Matrícula
                   </span>
-                  <span className="text-[12px] font-black leading-none">
+                  <span className="text-[12px] font-black leading-none -mt-[1px]">
                     {member.registrationNumber || "---"}
                   </span>
                 </div>
@@ -188,8 +188,9 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
               </div>
             </div>
 
+            {/* ✅ ENDEREÇO: sobe 1px (texto do rodapé) */}
             <div className="h-[0.4cm] bg-green-700 flex items-center justify-center z-10 relative box-border shadow-lg">
-              <span className="text-white text-[7px] font-bold uppercase tracking-wider">
+              <span className="text-white text-[7px] font-bold uppercase tracking-wider leading-none -mt-[10px]">
                 {CHURCH_DATA.address.split(" - ")[0]} - São Sebastião II - Rondonópolis/MT
               </span>
             </div>
@@ -199,10 +200,11 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
           <SideWrap>
             <Watermark />
 
-            <div className="h-[0.8cm] bg-white/90 border-b border-green-700 flex items-center px-2 relative z-10 box-border shadow-lg">
-              <p className="text-[6.5px] text-center font-bold leading-tight text-gray-800">
-                Este documento é válido somente com o carimbo da Igreja e visto do Pastor, enquanto o portador se mantiver fiel aos
-                princípios da Palavra de Deus e Estatuto da igreja.
+            {/* ✅ TEXTO SUPERIOR: sobe um pouco (top bar) */}
+            <div className="h-[0.8cm] bg-white/90 border-b border-green-700 flex items-start px-2 pt-[1px] relative z-10 box-border shadow-lg">
+              <p className="text-[6.5px] text-center font-bold leading-[1.12] text-gray-800 w-full -mt-[1px]">
+                Este documento é válido somente com o carimbo da Igreja e visto do Pastor, enquanto o portador se
+                mantiver fiel aos princípios da Palavra de Deus e Estatuto da igreja.
               </p>
             </div>
 
@@ -226,16 +228,17 @@ export const Card: React.FC<CardProps> = ({ member, id }) => {
               </div>
             </div>
 
+            {/* ✅ ANOS: sobe um pouco o texto e a faixa */}
             <div className="h-[1.5cm] flex flex-row relative z-10 border-t-2 border-green-800 w-full box-border shadow-lg">
               {years.map((year, i) => (
                 <div
                   key={year}
-                  className={`flex-1 flex flex-col h-full ${
-                    i < years.length - 1 ? "border-r border-green-800" : ""
-                  }`}
+                  className={`flex-1 flex flex-col h-full ${i < years.length - 1 ? "border-r border-green-800" : ""}`}
                 >
-                  <div className="h-[0.4cm] w-full flex items-center justify-center bg-green-800 border-b border-green-800 box-border">
-                    <span className="text-white text-[8px] font-bold leading-none">{year}</span>
+                  <div className="h-[0.38cm] w-full flex items-center justify-center bg-green-800 border-b border-green-800 box-border">
+                    <span className="text-white text-[8px] font-bold leading-none -mt-[10px]">
+                      {year}
+                    </span>
                   </div>
                   <div className="flex-1 bg-white/90 w-full" />
                 </div>

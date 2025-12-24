@@ -37,7 +37,7 @@ export const Login: React.FC<Props> = ({ onSuccess }) => {
             <img src={APP_LOGO_SRC} alt="Logo" className="w-full h-full object-contain" draggable={false} />
           </div>
           <div>
-            <div className="text-sm text-green-100">Igreja Ev. Pent. JARDIM DEORAÇÃO INDEPENDENTE</div>
+            <div className="text-sm text-green-100">Igreja Ev. Pent. JARDIM DE ORAÇÃO INDEPENDENTE</div>
             <div className="font-black text-lg leading-tight">Login</div>
           </div>
         </div>
