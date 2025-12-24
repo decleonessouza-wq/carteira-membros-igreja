@@ -439,6 +439,7 @@ const App: React.FC = () => {
               onEdit={handleEditMember}
               onGenerateCard={handleGenerateCard}
               onDelete={handleDeleteMember}
+              onReports={handleGoReports}
             />
           )}
 
