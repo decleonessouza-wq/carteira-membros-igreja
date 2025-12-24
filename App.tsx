@@ -17,8 +17,14 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+
 import { supabase } from "./src/lib/supabaseClient";
-import { memberFromRow, memberToRow, MemberRow } from "./src/lib/memberMapper";
+import {
+  getMembers,
+  createMember,
+  updateMember,
+  deleteMember,
+} from "./src/lib/services/membersService";
 
 const MEMBERS_TABLE = "members";
 
@@ -112,21 +118,19 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const fetchMembers = async (userId: string) => {
+  const fetchMembers = async () => {
     setDataLoading(true);
     setDataError(null);
 
     try {
-      const { data, error } = await supabase
-        .from(MEMBERS_TABLE)
-        .select("*")
-        .eq("user_id", userId)
-        .order("registration_number", { ascending: true });
-
-      if (error) throw error;
-
-      const list = (data ?? []).map((r: any) => memberFromRow(r as MemberRow));
-      setMembers(list);
+      const list = await getMembers(); // ✅ usa RLS + user logado
+      // Mantém ordenação estável pelo campo que você já usa na UI
+      const sorted = [...list].sort((a, b) => {
+        const av = String(a.registrationNumber ?? "");
+        const bv = String(b.registrationNumber ?? "");
+        return av.localeCompare(bv, "pt-BR", { numeric: true });
+      });
+      setMembers(sorted);
     } catch (err: any) {
       console.error(err);
       setDataError(err?.message ?? "Erro ao carregar membros.");
@@ -138,12 +142,13 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (sessionUserId) {
-      fetchMembers(sessionUserId);
+      fetchMembers();
       setView(AppView.LIST);
     } else {
       setMembers([]);
       setView(AppView.LIST);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionUserId]);
 
   const handleLogout = async () => {
@@ -159,6 +164,7 @@ const App: React.FC = () => {
   const handleNewMember = async () => {
     if (!sessionUserId) return;
 
+    // ✅ mantém sua lógica atual para "próxima matrícula"
     let next = 1;
     try {
       const { data, error } = await supabase
@@ -173,7 +179,7 @@ const App: React.FC = () => {
       const maxVal = data?.[0]?.registration_number;
       const maxNum = parseInt(String(maxVal ?? "0"), 10);
       if (!Number.isNaN(maxNum) && maxNum >= 0) next = maxNum + 1;
-    } catch (e) {
+    } catch (_e) {
       next = 1;
     }
 
@@ -200,13 +206,7 @@ const App: React.FC = () => {
       setDataLoading(true);
       setDataError(null);
 
-      const { error } = await supabase
-        .from(MEMBERS_TABLE)
-        .delete()
-        .eq("id", id)
-        .eq("user_id", sessionUserId);
-
-      if (error) throw error;
+      await deleteMember(id); // ✅ usa RLS
 
       setMembers((prev) => prev.filter((m) => m.id !== id));
     } catch (err: any) {
@@ -236,39 +236,18 @@ const App: React.FC = () => {
         registrationDate: normalizeToISODate(currentMember.registrationDate),
       };
 
-      const row = memberToRow(normalized, sessionUserId) as any;
-
-      let savedRow: any = null;
-
-      if (normalized.id) {
-        const { data, error } = await supabase
-          .from(MEMBERS_TABLE)
-          .update(row)
-          .eq("id", normalized.id)
-          .eq("user_id", sessionUserId)
-          .select("*")
-          .single();
-
-        if (error) throw error;
-        savedRow = data;
-      } else {
-        const { id, ...rowNoId } = row;
-        const { data, error } = await supabase
-          .from(MEMBERS_TABLE)
-          .insert(rowNoId)
-          .select("*")
-          .single();
-
-        if (error) throw error;
-        savedRow = data;
-      }
-
-      const saved = memberFromRow(savedRow as MemberRow);
+      const saved = normalized.id
+        ? await updateMember(normalized)
+        : await createMember(normalized);
 
       setMembers((prev) => {
         const exists = prev.some((m) => m.id === saved.id);
-        if (exists) return prev.map((m) => (m.id === saved.id ? saved : m));
-        return [...prev, saved];
+        const next = exists ? prev.map((m) => (m.id === saved.id ? saved : m)) : [...prev, saved];
+        return next.sort((a, b) =>
+          String(a.registrationNumber ?? "").localeCompare(String(b.registrationNumber ?? ""), "pt-BR", {
+            numeric: true,
+          })
+        );
       });
 
       setCurrentMember(saved);
@@ -310,7 +289,7 @@ const App: React.FC = () => {
     const height = Math.ceil(rect.height);
 
     return await html2canvas(element, {
-      scale: 3, // mais nítido e reduz risco de “quebrar” texto
+      scale: 3,
       useCORS: true,
       backgroundColor: "#ffffff",
       width,
@@ -329,7 +308,6 @@ const App: React.FC = () => {
 
       const imgData = canvas.toDataURL("image/png", 1.0);
 
-      // ✅ PDF HORIZONTAL no tamanho exato da carteira (20.3cm x 6.5cm)
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -369,11 +347,7 @@ const App: React.FC = () => {
 
     return (
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => sessionUserId && fetchMembers(sessionUserId)}
-          className={btnBase}
-          title="Atualizar"
-        >
+        <button onClick={() => fetchMembers()} className={btnBase} title="Atualizar">
           <RefreshCw className={"w-4 h-4 " + (dataLoading ? "animate-spin" : "")} />
           <span className="text-sm font-semibold text-gray-700">Atualizar</span>
         </button>
@@ -384,7 +358,7 @@ const App: React.FC = () => {
         </button>
       </div>
     );
-  }, [isLogged, dataLoading, sessionUserId]);
+  }, [isLogged, dataLoading]);
 
   if (authLoading) {
     return (
@@ -420,9 +394,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="leading-tight">
-              <div className="text-[12px] md:text-sm text-gray-500 font-medium">
-                Carteira Digital
-              </div>
+              <div className="text-[12px] md:text-sm text-gray-500 font-medium">Igreja Ev.Pent. JARDIM DE ORAÇÃO INDEPENDENTE</div>
               <div className="font-black text-gray-900 text-[15px] md:text-base tracking-tight">
                 Cadastro de Membros
               </div>
