@@ -141,14 +141,11 @@ export const MemberList: React.FC<MemberListProps> = ({
     const pageH = doc.internal.pageSize.getHeight();
     const margin = 12;
 
-    // Carrega logo (DataURL)
     const logoDataUrl = await loadLogoDataUrl();
 
-    // ---------- HEADER VERDE ----------
     doc.setFillColor(GREEN.r, GREEN.g, GREEN.b);
     doc.rect(0, 0, pageW, 28, "F");
 
-    // Logo (caixa branca)
     if (logoDataUrl) {
       try {
         const fmt = detectImageFormat(logoDataUrl);
@@ -179,13 +176,11 @@ export const MemberList: React.FC<MemberListProps> = ({
       maxWidth: pageW - margin * 2 - 10,
     });
 
-    // Título
     doc.setTextColor(DARK.r, DARK.g, DARK.b);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.text("FICHA DE MEMBRO", pageW / 2, 40, { align: "center" });
 
-    // ---------- FOTO ----------
     const photoX = pageW - margin - 34;
     const photoY = 47;
     doc.setDrawColor(203, 213, 225);
@@ -209,7 +204,6 @@ export const MemberList: React.FC<MemberListProps> = ({
       doc.text("Sem Foto", photoX + 17, photoY + 24, { align: "center" });
     }
 
-    // ---------- BLOCO DADOS ----------
     const cardX = margin;
     const cardY = 47;
     const cardW = pageW - margin * 2 - 38;
@@ -322,9 +316,9 @@ export const MemberList: React.FC<MemberListProps> = ({
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-[0_12px_40px_-20px_rgba(0,0,0,0.35)]">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-50 via-white to-emerald-50" />
-        <div className="relative p-6 md:p-7 flex flex-col gap-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
+        <div className="relative p-5 sm:p-6 md:p-7 flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="min-w-0">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 text-xs font-black">
                 <Users className="w-4 h-4" />
                 Cadastro & Carteira Digital
@@ -338,11 +332,11 @@ export const MemberList: React.FC<MemberListProps> = ({
               </p>
             </div>
 
-            <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+            <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-3">
               {onReports && (
                 <button
                   onClick={onReports}
-                  className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white border border-emerald-200 text-emerald-800 font-extrabold shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-white border border-emerald-200 text-emerald-800 font-extrabold shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200 whitespace-nowrap"
                   title="Relatórios"
                 >
                   <BarChart3 className="w-5 h-5" />
@@ -352,7 +346,7 @@ export const MemberList: React.FC<MemberListProps> = ({
 
               <button
                 onClick={onNewMember}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-black shadow-[0_18px_40px_-22px_rgba(16,185,129,0.9)] hover:shadow-[0_22px_55px_-25px_rgba(16,185,129,0.95)] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-black shadow-[0_18px_40px_-22px_rgba(16,185,129,0.9)] hover:shadow-[0_22px_55px_-25px_rgba(16,185,129,0.95)] hover:-translate-y-[1px] active:translate-y-0 transition-all duration-200 whitespace-nowrap"
               >
                 <UserPlus className="w-5 h-5" />
                 NOVO MEMBRO
@@ -360,7 +354,7 @@ export const MemberList: React.FC<MemberListProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4">
               <div className="text-xs font-black text-slate-500">TOTAL</div>
               <div className="text-2xl font-black text-slate-900">{stats.total}</div>
@@ -413,32 +407,57 @@ export const MemberList: React.FC<MemberListProps> = ({
           {filteredMembers.map((member) => (
             <div
               key={member.id}
-              className="group bg-white rounded-3xl p-5 border border-slate-100
+              className="group bg-white rounded-3xl p-4 sm:p-5 border border-slate-100
                          shadow-[0_16px_45px_-28px_rgba(0,0,0,0.45)]
                          hover:shadow-[0_22px_60px_-30px_rgba(0,0,0,0.55)]
                          hover:border-emerald-200 transition-all duration-300
-                         flex items-start gap-5 hover:-translate-y-[1px]"
+                         flex flex-col sm:flex-row items-start gap-4 sm:gap-5 hover:-translate-y-[1px]"
             >
-              <div className="relative flex-shrink-0">
-                <div className="w-20 h-24 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
-                  {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt={member.fullName}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <User className="w-8 h-8" />
+              <div className="relative flex-shrink-0 w-full sm:w-auto">
+                <div className="flex items-start gap-4 sm:block">
+                  <div className="relative">
+                    <div className="w-20 h-24 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
+                      {member.photo ? (
+                        <img
+                          src={member.photo}
+                          alt={member.fullName}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <User className="w-8 h-8" />
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="absolute -bottom-2 -right-2 bg-emerald-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
-                  #{member.registrationNumber}
+                    <div className="absolute -bottom-2 -right-2 bg-emerald-700 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                      #{member.registrationNumber}
+                    </div>
+                  </div>
+
+                  {/* no mobile mostra status perto do topo para não apertar */}
+                  <div className="sm:hidden flex-1 min-w-0 pt-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-black text-slate-900 truncate text-base uppercase">
+                          {member.fullName}
+                        </h3>
+                        <p className="text-sm font-extrabold text-emerald-700">{member.role || "-"}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{member.congregation || "-"}</p>
+                      </div>
+
+                      <span
+                        className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(
+                          member.status
+                        )}`}
+                      >
+                        {member.status}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0 py-1">
+              <div className="hidden sm:block flex-1 min-w-0 py-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="font-black text-slate-900 truncate text-base group-hover:text-emerald-700 transition-colors uppercase">
@@ -449,7 +468,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                   </div>
 
                   <span
-                    className={`px-2 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(
+                    className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-black uppercase border ${getStatusPill(
                       member.status
                     )}`}
                   >
@@ -457,10 +476,11 @@ export const MemberList: React.FC<MemberListProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 mt-4">
+                {/* Ações: no mobile quebram linha e ficam confortáveis */}
+                <div className="flex flex-wrap items-center gap-2 mt-4">
                   <button
                     onClick={() => onGenerateCard(member)}
-                    className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl text-xs font-black
+                    className="flex-1 min-w-[150px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl text-xs font-black
                                bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800
                                border border-slate-200 hover:border-emerald-200
                                transition-all duration-200 active:scale-[0.99]"
@@ -476,6 +496,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                                bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700
                                border border-slate-200 hover:border-emerald-200 transition-all duration-200"
                     title="Ficha PDF"
+                    aria-label="Ficha PDF"
                   >
                     <FileText className="w-4 h-4" />
                   </button>
@@ -486,6 +507,7 @@ export const MemberList: React.FC<MemberListProps> = ({
                                bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700
                                border border-slate-200 hover:border-amber-200 transition-all duration-200"
                     title="Editar"
+                    aria-label="Editar"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -500,6 +522,65 @@ export const MemberList: React.FC<MemberListProps> = ({
                                bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700
                                border border-slate-200 hover:border-rose-200 transition-all duration-200"
                     title="Excluir"
+                    aria-label="Excluir"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="mt-3 text-[11px] text-slate-400">
+                  Dica: gere a <span className="font-bold text-slate-500">Ficha</span> para impressão e arquivo.
+                </div>
+              </div>
+
+              {/* bloco de ações no mobile (abaixo) para ficar perfeito */}
+              <div className="sm:hidden w-full">
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <button
+                    onClick={() => onGenerateCard(member)}
+                    className="flex-1 min-w-[160px] inline-flex items-center justify-center gap-2 py-2.5 px-3 rounded-2xl text-xs font-black
+                               bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800
+                               border border-slate-200 hover:border-emerald-200
+                               transition-all duration-200 active:scale-[0.99]"
+                    title="Carteira"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Carteira
+                  </button>
+
+                  <button
+                    onClick={() => generateMemberSheet(member)}
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700
+                               border border-slate-200 hover:border-emerald-200 transition-all duration-200"
+                    title="Ficha PDF"
+                    aria-label="Ficha PDF"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => onEdit(member)}
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-amber-50 text-slate-600 hover:text-amber-700
+                               border border-slate-200 hover:border-amber-200 transition-all duration-200"
+                    title="Editar"
+                    aria-label="Editar"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (window.confirm("Tem certeza que deseja excluir este membro?")) {
+                        onDelete(member.id);
+                      }
+                    }}
+                    className="inline-flex items-center justify-center p-2.5 rounded-2xl
+                               bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700
+                               border border-slate-200 hover:border-rose-200 transition-all duration-200"
+                    title="Excluir"
+                    aria-label="Excluir"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
