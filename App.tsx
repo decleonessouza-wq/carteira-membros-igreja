@@ -26,8 +26,6 @@ import {
   deleteMember,
 } from "./src/lib/services/membersService";
 
-const MEMBERS_TABLE = "members";
-
 // ✅ Carteira horizontal: 10cm + 10cm + gap ~0.3cm = 20.3cm (203mm)
 // Altura: 6.5cm (65mm)
 const CARD_PDF_W_MM = 203;
@@ -68,6 +66,28 @@ async function waitForImages(root: HTMLElement) {
         })
     )
   );
+}
+
+// ✅ calcula a próxima matrícula corretamente (numérica), sem depender do ORDER do banco (texto)
+function getNextRegistrationNumber(existing: Array<string | undefined | null>) {
+  const used = new Set(existing.map((v) => String(v ?? "").trim()).filter(Boolean));
+
+  let max = 0;
+
+  for (const raw of used) {
+    // pega só o prefixo numérico (antes de "-"), exemplo: "12-PRE" -> "12"
+    const base = raw.split("-")[0]?.trim() ?? "";
+    const n = parseInt(base, 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+
+  // candidato inicial
+  let next = max + 1;
+
+  // garante que não existe exatamente "next" (ex: "10") já cadastrado
+  while (used.has(String(next))) next += 1;
+
+  return String(next);
 }
 
 const App: React.FC = () => {
@@ -124,7 +144,6 @@ const App: React.FC = () => {
 
     try {
       const list = await getMembers(); // ✅ usa RLS + user logado
-      // Mantém ordenação estável pelo campo que você já usa na UI
       const sorted = [...list].sort((a, b) => {
         const av = String(a.registrationNumber ?? "");
         const bv = String(b.registrationNumber ?? "");
@@ -164,28 +183,12 @@ const App: React.FC = () => {
   const handleNewMember = async () => {
     if (!sessionUserId) return;
 
-    // ✅ mantém sua lógica atual para "próxima matrícula"
-    let next = 1;
-    try {
-      const { data, error } = await supabase
-        .from(MEMBERS_TABLE)
-        .select("registration_number")
-        .eq("user_id", sessionUserId)
-        .order("registration_number", { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      const maxVal = data?.[0]?.registration_number;
-      const maxNum = parseInt(String(maxVal ?? "0"), 10000);
-      if (!Number.isNaN(maxNum) && maxNum >= 0) next = maxNum + 1;
-    } catch (_e) {
-      next = 1;
-    }
+    // ✅ NOVO: calcula pela lista já carregada (evita bug do "10")
+    const nextReg = getNextRegistrationNumber(members.map((m) => m.registrationNumber));
 
     setCurrentMember({
       ...INITIAL_MEMBER_STATE,
-      registrationNumber: String(next),
+      registrationNumber: nextReg,
       registrationDate: todayISODate(),
     });
 
@@ -254,8 +257,18 @@ const App: React.FC = () => {
       setView(AppView.LIST);
     } catch (err: any) {
       console.error(err);
-      setDataError(err?.message ?? "Erro ao salvar membro.");
-      alert(err?.message ?? "Erro ao salvar membro.");
+
+      const msg = String(err?.message ?? "Erro ao salvar membro.");
+      setDataError(msg);
+
+      // ✅ mensagem mais amigável para a constraint de matrícula
+      if (msg.toLowerCase().includes("members_registration_number_uq") || msg.toLowerCase().includes("duplicate key")) {
+        alert(
+          "Essa matrícula já existe. Clique em 'Novo Membro' novamente para o sistema gerar a próxima matrícula e tente salvar."
+        );
+      } else {
+        alert(msg);
+      }
     } finally {
       setDataLoading(false);
     }
@@ -270,7 +283,6 @@ const App: React.FC = () => {
     const element = document.getElementById("member-card-print") as HTMLElement | null;
     if (!element) return null;
 
-    // ✅ garante fontes e imagens carregadas para não “pular” layout no export
     try {
       // @ts-ignore
       if (document.fonts?.ready) {
@@ -283,7 +295,6 @@ const App: React.FC = () => {
 
     await waitForImages(element);
 
-    // ✅ força medidas corretas do elemento (sem depender do viewport/scroll)
     const rect = element.getBoundingClientRect();
     const width = Math.ceil(rect.width);
     const height = Math.ceil(rect.height);
@@ -394,7 +405,9 @@ const App: React.FC = () => {
             </div>
 
             <div className="leading-tight">
-              <div className="text-[12px] md:text-sm text-gray-500 font-medium">Igreja Ev.Pent. JARDIM DE ORAÇÃO INDEPENDENTE</div>
+              <div className="text-[12px] md:text-sm text-gray-500 font-medium">
+                Igreja Ev.Pent. JARDIM DE ORAÇÃO INDEPENDENTE
+              </div>
               <div className="font-black text-gray-900 text-[15px] md:text-base tracking-tight">
                 Cadastro de Membros
               </div>
