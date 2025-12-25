@@ -20,15 +20,15 @@ async function requireUser() {
 }
 
 /**
- * 📥 LISTAR membros do usuário logado
+ * 📥 LISTAR membros (ambiente único: admins veem tudo)
+ * ⚠️ A permissão real é controlada pelo RLS no banco.
  */
 export async function getMembers(): Promise<Member[]> {
-  const user = await requireUser();
+  await requireUser();
 
   const { data, error } = await supabase
     .from("members")
     .select("*")
-    .eq("user_id", user.id)
     .order("full_name", { ascending: true });
 
   if (error) {
@@ -41,6 +41,7 @@ export async function getMembers(): Promise<Member[]> {
 
 /**
  * ➕ CRIAR novo membro
+ * Mantém user_id como "quem cadastrou" (auditoria), mas sem limitar visualização.
  */
 export async function createMember(member: Member): Promise<Member> {
   const user = await requireUser();
@@ -62,7 +63,8 @@ export async function createMember(member: Member): Promise<Member> {
 }
 
 /**
- * ✏️ ATUALIZAR membro existente
+ * ✏️ ATUALIZAR membro existente (admin pode atualizar qualquer membro)
+ * ⚠️ RLS no banco decide se o usuário pode ou não.
  */
 export async function updateMember(member: Member): Promise<Member> {
   const user = await requireUser();
@@ -71,13 +73,13 @@ export async function updateMember(member: Member): Promise<Member> {
     throw new Error("ID do membro é obrigatório para update.");
   }
 
+  // mantém user_id como "quem salvou por último" (opcional)
   const row = memberToRow(member, user.id);
 
   const { data, error } = await supabase
     .from("members")
     .update(row)
     .eq("id", member.id)
-    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -90,16 +92,16 @@ export async function updateMember(member: Member): Promise<Member> {
 }
 
 /**
- * 🗑️ EXCLUIR membro
+ * 🗑️ EXCLUIR membro (admin pode excluir qualquer membro)
+ * ⚠️ RLS no banco decide se o usuário pode ou não.
  */
 export async function deleteMember(memberId: string): Promise<void> {
-  const user = await requireUser();
+  await requireUser();
 
   const { error } = await supabase
     .from("members")
     .delete()
-    .eq("id", memberId)
-    .eq("user_id", user.id);
+    .eq("id", memberId);
 
   if (error) {
     console.error("Erro ao excluir membro:", error);
