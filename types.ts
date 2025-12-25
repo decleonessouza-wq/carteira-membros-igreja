@@ -13,6 +13,17 @@ export interface CongregationData {
   pastor: string;
 }
 
+/**
+ * Anotações administrativas do membro
+ * (Pastor / Administrador)
+ */
+export interface MemberNote {
+  id: string;          // uuid ou timestamp
+  text: string;        // conteúdo da anotação
+  createdAt: string;   // ISO date-time
+  createdBy?: string;  // nome ou id do admin (opcional por enquanto)
+}
+
 export interface Member {
   id: string;
 
@@ -33,6 +44,12 @@ export interface Member {
   naturalness: string;
   birthDate: string;
   baptismDate: string;
+
+  /** 🆕 NOVOS CAMPOS */
+  maritalStatus: "Solteiro(a)" | "Casado(a)" | "Viúvo(a)" | "Outro";
+  churchEntryDate: string;       // data de ingresso na igreja
+  anointingDate: string;         // unção / separação ao cargo
+  notes: MemberNote[];           // anotações administrativas
 
   role: string;
   congregation: string;
