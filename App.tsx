@@ -177,7 +177,7 @@ const App: React.FC = () => {
       if (error) throw error;
 
       const maxVal = data?.[0]?.registration_number;
-      const maxNum = parseInt(String(maxVal ?? "0"), 10);
+      const maxNum = parseInt(String(maxVal ?? "0"), 10000);
       if (!Number.isNaN(maxNum) && maxNum >= 0) next = maxNum + 1;
     } catch (_e) {
       next = 1;
